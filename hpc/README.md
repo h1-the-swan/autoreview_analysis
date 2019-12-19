@@ -1,0 +1,1 @@
+This directory contains files helpful for running jobs on HPC (high performance computer) which uses the SLURM job scheduler. This includes batch scripts and template scripts. For data from hpc, see <a href="../data">the `data` directory</a>.
