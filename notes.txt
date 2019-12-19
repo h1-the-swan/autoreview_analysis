@@ -1,0 +1,4 @@
+2019-12-19
+At this point, I can use HPC to collect seed and candidate papers in parallel. One batch job will take a review article from WoS, find all the references, and generate five different seed/candidate splits (with five random seeds).
+The previous analysis used MAG, and the results in the `jp_autoreview` MySQL database has MAG IDs for it's review articles.
+Next: collect all of the WoS IDs for the review articles we analyzed previously.
