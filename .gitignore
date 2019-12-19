@@ -9,4 +9,10 @@ __pycache__/
 *.pyc
 data/
 Untitled*.ipynb
-_batch_scripts
+
+# SLURM
+_batch_scripts/
+*.out
+
+# Singularity image files
+*.sif
