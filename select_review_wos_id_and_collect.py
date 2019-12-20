@@ -36,9 +36,9 @@ def get_wos_id(fpath, row_num, sep='\t', header=True, col_num=0):
         for i, line in enumerate(f):
             if i == 0 and header is True:
                 continue
-            if curr_row == rownum:
+            if curr_row == row_num:
                 line = line.strip().split(sep)
-                return line[colnum]
+                return line[col_num]
             curr_row += 1
     return None
 
