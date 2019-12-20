@@ -69,7 +69,7 @@ def main(args):
     fpath = Path(args.id_list)
     paper_id = get_wos_id(fpath, args.rownum)
     if paper_id is not None:
-        run_collection(paper_id)
+        run_collection(paper_id, args)
     else:
         raise RuntimeError("Could not get the paper ID")
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("id_list", help="tab-separated input file (with header) where the first column is the WoS ID to use")
-    parser.add_argument("rownum", help="row number in the input file (`id_list`) to use (0 indexed)")
+    parser.add_argument("rownum", type=int, help="row number in the input file (`id_list`) to use (0 indexed)")
     parser.add_argument("basedir", help="output base directory (will be created if it doesn't exist)")
     parser.add_argument("--citations", help="citations data (to be read by spark)")
     parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")

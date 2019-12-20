@@ -37,9 +37,11 @@ pickleshare==0.7.5
 prometheus-client==0.7.1
 prompt-toolkit==2.0.10
 ptyprocess==0.6.0
+py4j==0.10.7
 Pygments==2.5.2
 pyparsing==2.4.5
 pyrsistent==0.15.6
+pyspark==2.4.4
 python-dateutil==2.8.1
 python-dotenv==0.10.3
 python-slugify==4.0.0
