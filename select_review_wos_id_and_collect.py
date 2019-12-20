@@ -19,7 +19,8 @@ logging.basicConfig(format='%(asctime)s %(name)s.%(lineno)d %(levelname)s : %(me
 # logger = logging.getLogger(__name__)
 logger = logging.getLogger('__main__').getChild(__name__)
 
-from config import Config
+# from config import Config
+from autoreview.config import Config
 from get_references_and_collect import PaperCollector
 
 def get_wos_id(fpath, row_num, sep='\t', header=True, col_num=0):
