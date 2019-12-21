@@ -16,3 +16,5 @@ _batch_scripts/
 
 # Singularity image files
 *.sif
+
+spark_local_dir/
