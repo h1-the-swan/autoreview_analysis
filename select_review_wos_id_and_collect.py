@@ -50,7 +50,9 @@ def run_collection(paper_id, args):
     :args: command line arguments
 
     """
-    config = Config()
+    config = Config(spark_mem='100g')
+    config._spark = config.load_spark_session(mem=config.spark_mem,
+                                                additional_conf=[('spark.worker.cleanup.enabled', 'true')])
     try:
         pc = PaperCollector(config,
                     basedir = args.basedir,
