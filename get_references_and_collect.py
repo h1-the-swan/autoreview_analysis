@@ -27,7 +27,7 @@ from autoreview.config import Config
 
 class PaperCollector(object):
 
-    def __init__(self, config, basedir, paper_id, citations, papers, sample_size, id_colname, cited_colname):
+    def __init__(self, config, basedir, paper_id, citations, papers, sample_size, id_colname, cited_colname, use_spark=True):
         """
 
         :config: Config object
@@ -35,6 +35,10 @@ class PaperCollector(object):
         """
         self._config = config
         self.spark = config.spark
+        self.use_spark = use_spark
+        # TODO:
+        # if self.use_spark is True:
+        #     self.spark = config.spark
         self.basedir = basedir
         self.paper_id = paper_id
         self.citations = citations
@@ -105,8 +109,9 @@ class PaperCollector(object):
                                 random_seed=random_seed,
                                 id_colname=self.id_colname,
                                 cited_colname=self.cited_colname,
-                                config=self._config)
-                a.get_papers_2_degrees_out()
+                                config=self._config,
+                                use_spark=self.use_spark)
+                a.get_papers_2_degrees_out(use_spark=self.use_spark)
                 this_outdir.joinpath('._COMPLETE').touch()
                 logfile.write("collecting papers for {} took {}\n".format(this_outdir, timer()-this_start))
 

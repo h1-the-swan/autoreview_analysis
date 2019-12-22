@@ -50,9 +50,11 @@ def run_collection(paper_id, args):
     :args: command line arguments
 
     """
+    use_spark = not args.no_spark
     config = Config(spark_mem='100g')
-    config._spark = config.load_spark_session(mem=config.spark_mem,
-                                                additional_conf=[('spark.worker.cleanup.enabled', 'true')])
+    if use_spark is True:
+        config._spark = config.load_spark_session(mem=config.spark_mem,
+                                                    additional_conf=[('spark.worker.cleanup.enabled', 'true')])
     try:
         pc = PaperCollector(config,
                     basedir = args.basedir,
@@ -61,7 +63,8 @@ def run_collection(paper_id, args):
                     papers=args.papers,
                     sample_size=args.sample_size,
                     id_colname=args.id_colname,
-                    cited_colname=args.cited_colname)
+                    cited_colname=args.cited_colname,
+                    use_spark=use_spark)
         pc.main(args)
     finally:
         pc._config.teardown()
@@ -91,6 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")
     parser.add_argument("--id-colname", default='UID', help="column name for paper id (default: \"UID\")")
     parser.add_argument("--cited-colname", default='cited_UID', help="column name for cited paper id (default: \"cited_UID\")")
+    parser.add_argument("--no-spark", action='store_true', help="don't use spark to collect candidate papers")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args
     args = parser.parse_args()
