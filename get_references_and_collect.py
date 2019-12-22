@@ -21,9 +21,11 @@ logger = logging.getLogger('__main__').getChild(__name__)
 
 from slugify import slugify
 from autoreview import Autoreview
-from autoreview.util import prepare_directory, load_spark_dataframe
+from autoreview.util import prepare_directory, load_spark_dataframe, load_pandas_dataframe
 
 from autoreview.config import Config
+
+import pandas as pd
 
 class PaperCollector(object):
 
@@ -61,7 +63,24 @@ class PaperCollector(object):
             logger.debug("Output directory {} does not exist. Creating it...".format(self.outdir))
             self.outdir.mkdir()
 
-    def get_reference_ids(self, paper_id):
+        self.df_citations = None
+        self.df_papers = None
+
+    def get_reference_ids(self, paper_id, use_spark=True, df_citations=None):
+        """get references
+
+        :returns: list of paper IDs
+
+        """
+        if use_spark is True:
+            return self._get_reference_ids_spark(paper_id)
+        if df_citations is None or not isinstance(df_citations, pd.Dataframe):
+            raise ValueError('`df_citations` must be supplied to this method, and it must be a pandas dataframe')
+        reference_ids = df_citations[df_citations[self.id_colname]==paper_id]
+        reference_ids = reference_ids[self.cited_colname].tolist()
+        return reference_ids
+
+    def _get_reference_ids_spark(self, paper_id):
         """Use spark to get references
 
         :returns: list of paper IDs
@@ -80,11 +99,28 @@ class PaperCollector(object):
         logfile.write(" ".join(sys.argv))
         logfile.write("\n")
         try:
-            reference_ids = self.get_reference_ids(self.paper_id)
+            # load citation data (if not using spark)
+            if self.use_spark is False:
+                logger.debug('loading citation data...')
+                start = timer()
+                self.df_citations = load_pandas_dataframe(self.citations)
+                logger.debug('done loading citation data. took {}'.format(format_timespan(timer()-start)))
+            else:
+                self.df_citations = None
+            reference_ids = self.get_reference_ids(self.paper_id, self.use_spark, self.df_citations)
             outfile = self.outdir.joinpath('reference_ids.csv')
             logger.debug("writing {} reference ids to {}".format(len(reference_ids), outfile))
             logfile.write("writing {} reference ids to {}\n".format(len(reference_ids), outfile))
             outfile.write_text("\n".join(reference_ids))
+
+            # load paper data (if not using spark)
+            if self.use_spark is False:
+                logger.debug('loading paper data...')
+                start = timer()
+                self.df_papers = load_pandas_dataframe(self.papers)
+                logger.debug('done loading papers data. took {}'.format(format_timespan(timer()-start)))
+            else:
+                self.df_papers = None
 
             # collect paper sets for each random seed (1-5):
             for random_seed in range(1, 6):
@@ -110,7 +146,9 @@ class PaperCollector(object):
                                 id_colname=self.id_colname,
                                 cited_colname=self.cited_colname,
                                 config=self._config,
-                                use_spark=self.use_spark)
+                                use_spark=self.use_spark,
+                                citations_data_preloaded=self.df_citations,
+                                paper_data_preloaded=self.df_papers)
                 a.get_papers_2_degrees_out(use_spark=self.use_spark)
                 this_outdir.joinpath('._COMPLETE').touch()
                 logfile.write("collecting papers for {} took {}\n".format(this_outdir, timer()-this_start))
