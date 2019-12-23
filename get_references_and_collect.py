@@ -74,7 +74,7 @@ class PaperCollector(object):
         """
         if use_spark is True:
             return self._get_reference_ids_spark(paper_id)
-        if df_citations is None or not isinstance(df_citations, pd.Dataframe):
+        if df_citations is None or not isinstance(df_citations, pd.DataFrame):
             raise ValueError('`df_citations` must be supplied to this method, and it must be a pandas dataframe')
         reference_ids = df_citations[df_citations[self.id_colname]==paper_id]
         reference_ids = reference_ids[self.cited_colname].tolist()
