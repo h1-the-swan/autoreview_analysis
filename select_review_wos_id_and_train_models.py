@@ -126,9 +126,6 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info(" ".join(sys.argv))
     logger.info( '{:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) )
-    if os.environ.get('SLURM_JOB_ID'):
-        logger.info('SLURM_JOB_ID: {}'.format(os.environ['SLURM_JOB_ID']))
-        logger.info('Running on node: {}'os.environ.get('SLURM_JOB_NODELIST'))
     import argparse
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("id_list", help="tab-separated input file (with header) where the first column is the WoS ID to use")
