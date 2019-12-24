@@ -151,7 +151,7 @@ class PaperCollector(object):
                                 paper_data_preloaded=self.df_papers)
                 a.get_papers_2_degrees_out(use_spark=self.use_spark)
                 this_outdir.joinpath('._COMPLETE').touch()
-                logfile.write("collecting papers for {} took {}\n".format(this_outdir, timer()-this_start))
+                logfile.write("collecting papers for {} took {}\n".format(this_outdir, format_timespan(timer()-this_start)))
 
             logfile.write("\n{} - COLLECTION COMPLETED\n".format(datetime.now()))
         finally:
