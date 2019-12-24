@@ -36,11 +36,9 @@ class PaperCollector(object):
 
         """
         self._config = config
-        self.spark = config.spark
         self.use_spark = use_spark
-        # TODO:
-        # if self.use_spark is True:
-        #     self.spark = config.spark
+        if self.use_spark is True:
+            self.spark = config.spark
         self.basedir = basedir
         self.paper_id = paper_id
         self.citations = citations
