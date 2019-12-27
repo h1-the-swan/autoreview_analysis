@@ -73,7 +73,8 @@ def run_collection(paper_id, args):
 
 def main(args):
     fpath = Path(args.id_list)
-    paper_id = get_wos_id(fpath, args.rownum)
+    header = not args.no_header
+    paper_id = get_wos_id(fpath, args.rownum, header=header)
     if paper_id is not None:
         run_collection(paper_id, args)
     else:
@@ -86,9 +87,10 @@ if __name__ == "__main__":
     logger.info( '{:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) )
     import argparse
     parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument("id_list", help="tab-separated input file (with header) where the first column is the WoS ID to use")
+    parser.add_argument("id_list", help="tab-separated input file (default: with header) where the first column is the WoS ID to use")
     parser.add_argument("rownum", type=int, help="row number in the input file (`id_list`) to use (0 indexed)")
     parser.add_argument("basedir", help="output base directory (will be created if it doesn't exist)")
+    parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
     parser.add_argument("--citations", help="citations data (to be read by spark)")
     parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
     parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")

@@ -10,17 +10,10 @@ On hyak:
 tried running job array with 795 jobs
 Didn't work very well. Most timed out. Will try running separate jobs without using job array.
 Getting some "disk quota exceeded" errors from spark
-[jporteno@mox1 autoreview_analysis]$ mmlsquota -j stf gscratch
-                         Block Limits                                    |     File Limits
-			 Filesystem type             KB      quota      limit   in_doubt    grace |    files   quota    limit in_doubt    grace  Remarks
-			 gscratch   FILESET  52591985408 48234496000 53057945600   20227200   7 days | 10901455 69000000 75900000    28868   
 
-delete contents of spark_local_dir:
-[jporteno@mox1 autoreview_analysis]$ rm -rf spark_local_dir/*
-Takes a long time
 
-Afterward:
-[jporteno@mox1 autoreview_analysis]$ mmlsquota -j stf gscratch
-                         Block Limits                                    |     File Limits
-			 Filesystem type             KB      quota      limit   in_doubt    grace |    files   quota    limit in_doubt    grace  Remarks
-			 gscratch   FILESET  41366808832 48234496000 53057945600   34544768     none |  9294846 69000000 75900000    17493     none 
+2019-12-27
+create a sample of midsize (200-250 references) review articles. sample size of 100.
+```
+python create_midsize_sample.py ./data/wos_papers_reviews_with_citation_count.tsv ./data/reviews_wos_ids_midsize_sample_20191227.tsv --debug >& logs/create_midsize_sample_20191227.log &
+```
