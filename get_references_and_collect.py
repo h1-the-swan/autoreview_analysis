@@ -91,6 +91,18 @@ class PaperCollector(object):
         reference_ids = reference_ids[self.cited_colname].tolist()
         return reference_ids
 
+    def save_review_paper_info(self):
+        """Save info (title, publication year, etc.) about the review paper to a JSON file
+
+        """
+        outfpath = self.outdir.joinpath('paper_info.json')
+        logger.debug('saving paper info for this paper ({}) to {}'.format(self.paper_id, outfpath))
+        review_paper = self.df_papers[self.df_papers['UID']==self.paper_id]
+        if len(review_paper) == 1:
+            review_paper.iloc[0].to_json(outfpath)
+        else:
+            logger.debug("could not save paper info for paper {}. expected 1 row, but got {}".format(self.paper_id, len(review_paper)))
+
     def main(self, args):
         logfile = self.outdir.joinpath('collect.log').open(mode='a', buffering=1)
         logfile.write("{} - starting collection\n".format(datetime.now()))
@@ -117,6 +129,7 @@ class PaperCollector(object):
                 start = timer()
                 self.df_papers = load_pandas_dataframe(self.papers)
                 logger.debug('done loading papers data. took {}'.format(format_timespan(timer()-start)))
+                self.save_review_paper_info()
             else:
                 self.df_papers = None
 
