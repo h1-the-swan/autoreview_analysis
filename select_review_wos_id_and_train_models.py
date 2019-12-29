@@ -102,7 +102,8 @@ def run_train(paper_id, year, outdir, seed):
 
 def main(args):
     fpath = Path(args.id_list)
-    paper_id = get_wos_id(fpath, args.rownum)
+    header = not args.no_header
+    paper_id = get_wos_id(fpath, args.rownum, header=header)
     if paper_id is None:
         raise RuntimeError("Could not get the paper ID")
     logger.debug("paper_id is {}".format(paper_id))
@@ -135,6 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("rownum", type=int, help="row number in the input file (`id_list`) to use (0 indexed)")
     parser.add_argument("basedir", help="output base directory (should already exist, and contain seed/candidate papers in a subfolder)")
     parser.add_argument("--years", required=True, help="path to TSV file containing the publication year for the papers (if the directory doesn't have a 'paper_info.json' file)")
+    parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
     # parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")
