@@ -73,6 +73,7 @@ def get_wos_id(fpath, row_num, sep='\t', header=True, col_num=0):
 #     finally:
 #         pc._config.teardown()
 #
+
 def get_year(paper_id, years_fname, id_colname='UID', years_colname='pub_date', sep='\t'):
     """Get the publication year
 
@@ -82,7 +83,9 @@ def get_year(paper_id, years_fname, id_colname='UID', years_colname='pub_date', 
 
     """
     df = pd.read_csv(years_fname, sep=sep)
-    return df[df[id_colname]==paper_id][years_colname].iloc[0]
+    date = df[df[id_colname]==paper_id][years_colname].iloc[0]
+    date = pd.to_datetime(str(date))
+    return date.year
 
 def run_train(paper_id, year, outdir, seed):
     """Train models
@@ -103,8 +106,6 @@ def main(args):
     if paper_id is None:
         raise RuntimeError("Could not get the paper ID")
     logger.debug("paper_id is {}".format(paper_id))
-    year = get_year(paper_id, args.years)
-    logger.debug("year is {}".format(year))
     basedir = Path(args.basedir).resolve()
     if basedir.is_dir():
         logger.debug("Output basedir {} exists. Using this directory.".format(basedir))
@@ -114,6 +115,8 @@ def main(args):
     outdir = basedir.joinpath(paper_id_slug)
     if not outdir.is_dir():
         raise RuntimeError("Could not find directory {}".format(outdir))
+    year = get_year(paper_id, args.years)
+    logger.debug("year is {}".format(year))
     subdirs = [x for x in outdir.glob('seed*') if x.is_dir()]
     subdirs.sort()
     for subdir in subdirs:
@@ -131,7 +134,7 @@ if __name__ == "__main__":
     parser.add_argument("id_list", help="tab-separated input file (with header) where the first column is the WoS ID to use")
     parser.add_argument("rownum", type=int, help="row number in the input file (`id_list`) to use (0 indexed)")
     parser.add_argument("basedir", help="output base directory (should already exist, and contain seed/candidate papers in a subfolder)")
-    parser.add_argument("--years", required=True, help="path to TSV file containing the publication year for the papers")
+    parser.add_argument("--years", required=True, help="path to TSV file containing the publication year for the papers (if the directory doesn't have a 'paper_info.json' file)")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
     # parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")
