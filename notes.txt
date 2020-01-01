@@ -17,3 +17,9 @@ create a sample of midsize (200-250 references) review articles. sample size of 
 ```
 python create_midsize_sample.py ./data/wos_papers_reviews_with_citation_count.tsv ./data/reviews_wos_ids_midsize_sample_20191227.tsv --debug >& logs/create_midsize_sample_20191227.log &
 ```
+
+
+2019-12-31
+```
+python create_midsize_sample.py ./data/wos_papers_reviews_with_references_within_network_20191231.tsv ./data/reviews_wos_ids_midsize_sample_20191231.tsv --debug >& logs/create_midsize_sample_20191231.log &
+```

@@ -20,7 +20,7 @@ logger = logging.getLogger('__main__').getChild(__name__)
 
 import pandas as pd
 
-def cutoff_num_references(df, min_cutoff, max_cutoff, refs_colname='num_citations'):
+def cutoff_num_references(df, min_cutoff, max_cutoff, refs_colname='num_references'):
     """limit dataframe based on a minimum and maximum cutoff for number of references 
 
     :df: pandas dataframe
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-cutoff", type=int, default=250, help="maximum cutoff for number of references")
     parser.add_argument("--sample-size", type=int, default=100, help="sample size (default: 100 papers)")
     parser.add_argument("--random-seed", type=int, default=999, help="random seed used for sampling (default: 999)")
-    parser.add_argument("--refs-colname", default='num_citations', help="column name in the `review_ids` input file for the number of references (default: \"num_citations\")")
+    parser.add_argument("--refs-colname", default='num_references', help="column name in the `review_ids` input file for the number of references (default: \"num_references\")")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args
     args = parser.parse_args()
