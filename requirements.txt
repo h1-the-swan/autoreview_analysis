@@ -1,5 +1,5 @@
 attrs==19.3.0
--e git+https://github.com/h1-the-swan/autoreview.git@fa6efdedba31c7167dcf24cddc2d65dd8e5ed07d#egg=autoreview
+-e git+https://github.com/h1-the-swan/autoreview.git@ae7cf576ced76ce27255e3588e036c3425f238f4#egg=autoreview
 backcall==0.1.0
 bleach==3.1.0
 cycler==0.10.0

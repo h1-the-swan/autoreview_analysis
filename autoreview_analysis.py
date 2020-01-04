@@ -39,15 +39,18 @@ class LogFormatError(Exception):
     pass
 
 class AutoreviewAnalysis:
-    def __init__(self, basedir, row_num):
+    def __init__(self, basedir, row_num, parent=None):
         self.basedir = Path(basedir)
         self.row_num = row_num
+        self.parent = parent  # AutoreviewAnalysisCollection object
         self.collect_log_fpath = get_logfname(self.basedir, self.row_num, 'collect')
         if not self.collect_log_fpath.exists():
             raise NoDataError("{} does not exist".format(self.collect_log_fpath))
         self.collect_log = self.collect_log_fpath.read_text()
         self.wos_id_slug = self.get_wos_id_slug()
         self.dirpath = self.basedir.joinpath(self.wos_id_slug)
+        if not self.dirpath.exists():
+            raise NoDataError("directory {} does not exist".format(self.dirpath))
         self.reference_ids = self.get_reference_ids()
         subdirs = [x for x in self.dirpath.glob('seed*') if x.is_dir()]
         subdirs.sort()
@@ -82,22 +85,32 @@ class AutoreviewAnalysis:
     
     def get_reference_ids(self):
         fpath = self.dirpath.joinpath('reference_ids.csv')
+        if not fpath.exists():
+            raise NoDataError("file {} does not exist".format(fpath))
         reference_ids = []
         with fpath.open() as f:
             for line in f:
                 reference_ids.append(line.strip())
         return reference_ids
+
+    def top_models(self):
+        """get top models for all subdirs as a list
+        :returns: list of dictionaries representing top models
+
+        """
+        return [x.top_model() for x in self.subdirs if x.models]
     
         
 class AutoreviewAnalysisSubdir:
     def __init__(self, subdir, parent=None):
         self.subdir = subdir
-        self.parent = parent
+        self.parent = parent  # AutoreviewAnalysis object
         self.seed = int(subdir.name[4:])
         self.is_complete = self.check_complete()
         self.candidate_papers = None
         self.seed_papers = None
         self.target_papers = None
+        self.models = []
         
     def check_complete(self):
         return self.subdir.joinpath('._COMPLETE').exists()
@@ -139,6 +152,60 @@ class AutoreviewAnalysisSubdir:
             self.models.append(this_model)
             
     def top_model(self):
-        return sorted(self.models, key=lambda x: x['score_correctly_predicted'])[-1]
+        if self.models:
+            return sorted(self.models, key=lambda x: x['score_correctly_predicted'])[-1]
+        return None
 
+class AutoreviewAnalysisCollection:
 
+    """collection of review papers (each with seed/candidate splits, which in turn each have trained models)"""
+
+    def __init__(self, name):
+        self.name = name
+        # TODO
+
+        
+
+class AutoreviewAnalysisMultipleSeeds:
+    def __init__(self, basedir):
+        """
+
+        :basedir: base directory containing multiple directories with seed/candidate paper sets
+
+        """
+        pattern_idx = re.compile(r"_(\d+)\.out")
+        self.basedir = basedir
+        self.dirpaths = [x for x in self.basedir.iterdir() if x.is_dir()]
+        self.dirpaths.sort()
+        # initialize empty dictionaries
+        self.reviews = {x.name: [] for x in self.dirpaths}
+        self.reviews_with_train = {x.name: [] for x in self.dirpaths}
+        self.no_data_error = {x.name: [] for x in self.dirpaths}
+        self.log_format_error = {x.name: [] for x in self.dirpaths}
+
+        for dirpath in self.dirpaths:
+            for logfpath in dirpath.glob("select*and_collect*.out"):
+                m = pattern_idx.search(logfpath.name)
+                if m:
+                    idx = m.group(1)
+                else:
+                    continue
+
+                try:
+                    this_review = AutoreviewAnalysis(dirpath, idx)
+                    self.reviews[dirpath.name].append(this_review)
+                    if this_review.train_log is not None:
+                        self.reviews_with_train[dirpath.name].append(this_review)
+                except NoDataError:
+                    self.no_data_error[dirpath.name].append({
+                        'dirpath': dirpath,
+                        'logfpath': logfpath
+                    })
+                    continue
+                except LogFormatError:
+                    self.log_format_error[dirpath.name].append({
+                        'dirpath': dirpath,
+                        'logfpath': logfpath
+                    })
+                    continue
+        

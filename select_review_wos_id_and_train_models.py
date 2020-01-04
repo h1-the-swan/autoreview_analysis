@@ -94,7 +94,7 @@ def run_train(paper_id, year, outdir, seed):
     :args: command line arguments
 
     """
-    a = Autoreview(outdir, seed, use_spark=False)
+    a = Autoreview(outdir, random_seed=seed, use_spark=False)
     candidate_papers, seed_papers, target_papers = load_data_from_pickles(a.outdir)
     a.train_models(seed_papers=seed_papers, target_papers=target_papers, candidate_papers=candidate_papers, year_lowpass=year)
 
