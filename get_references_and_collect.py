@@ -187,7 +187,7 @@ def main(args):
 
 if __name__ == "__main__":
     total_start = timer()
-    logger = logging.getLogger(__name__)
+    # logger = logging.getLogger(__name__)
     logger.info(" ".join(sys.argv))
     logger.info( '{:%Y-%m-%d %H:%M:%S}'.format(datetime.now()) )
     import argparse

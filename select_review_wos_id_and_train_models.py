@@ -23,9 +23,14 @@ logger = logging.getLogger('__main__').getChild(__name__)
 from autoreview.config import Config
 from autoreview import Autoreview
 from autoreview.util import load_data_from_pickles
+from autoreview.util import ItemSelector, DataFrameColumnTransformer, ClusterTransformer, AverageTfidfCosSimTransformer
 
 from slugify import slugify
 import pandas as pd
+
+def get_timestamp():
+    return "{:%Y%m%d%H%M%S%f}".format(datetime.now())
+
 
 def get_wos_id(fpath, row_num, sep='\t', header=True, col_num=0):
     """Get the WoS ID to use
@@ -87,18 +92,106 @@ def get_year(paper_id, years_fname, id_colname='UID', years_colname='pub_date', 
     date = pd.to_datetime(str(date))
     return date.year
 
-def run_train(paper_id, year, outdir, seed):
+class TransformerSelection:
+
+    """
+    Specify different arrangements of features/transformers to use as inputs for the autoreview models
+    """
+
+    def __init__(self, switch_num=1, seed_papers=None):
+        self.switch_num = switch_num
+        self.seed_papers = seed_papers
+        # potential features/transformers to use
+        self.transformers = {
+            'avg_distance_to_train': 
+                ('avg_distance_to_train', ClusterTransformer(self.seed_papers)),
+            'ef': 
+                ('ef', DataFrameColumnTransformer('EF')),
+            'year': 
+                ('year', DataFrameColumnTransformer('year')),
+            'avg_title_tfidf_cosine_similarity': 
+                ('avg_title_tfidf_cosine_similarity', AverageTfidfCosSimTransformer(seed_papers=self.seed_papers, colname='title')),
+        }
+        self._switch(self.switch_num)
+
+    def _switch(self, switch_num=1):
+        """
+        dispatch method
+        """
+        switch = {
+            1: self.network_and_title,
+            2: self.network,
+            3: self.title,
+            4: self.network_title_year,
+        }
+        return switch[switch_num]()
+
+    def network_and_title(self):
+        """network and title features
+        """
+        self.name = "network_and_title_features"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['ef'],
+            self.transformers['avg_title_tfidf_cosine_similarity']
+        ]
+
+    def network(self):
+        """network features only
+        """
+        self.name = "network_features_only"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['ef'],
+        ]
+
+    def title(self):
+        """title features only"""
+        self.name = "title_features_only"
+        self.transformer_list = [
+            self.transformers['avg_title_tfidf_cosine_similarity']
+        ]
+
+    def network_title_year(self):
+        """network, title, and year features"""
+        self.name = "network_title_year_features"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['ef'],
+            self.transformers['avg_title_tfidf_cosine_similarity'],
+            self.transformers['year']
+        ]
+
+def run_train(paper_id, year, outdir, seed, transformer_scheme):
     """Train models
 
     :paper_id: paper ID
-    :args: command line arguments
+    :year: publication year of the paper
+    :outdir: directory with the seed/candidate/target papers
+    :seed: random seed to use
+    :transformer_scheme: integer mapping which features/transformers to use (see the TransformerSelection object definition)
 
     """
     a = Autoreview(outdir, random_seed=seed, use_spark=False)
     candidate_papers, seed_papers, target_papers = load_data_from_pickles(a.outdir)
-    a.train_models(seed_papers=seed_papers, target_papers=target_papers, candidate_papers=candidate_papers, year_lowpass=year)
-
-
+    transformer_conf = TransformerSelection(transformer_scheme, seed_papers=seed_papers)
+    model_outdir = outdir.joinpath(transformer_conf.name)
+    logger.debug("output directory is {}".format(model_outdir))
+    if model_outdir.is_dir() and model_outdir.joinpath('._COMPLETE').exists():
+        logger.debug("experiments for {} have already been completed. Skipping".format(model_outdir))
+        return
+    model_outdir.mkdir(exist_ok=True)
+    log_file_handler = logging.FileHandler(model_outdir.joinpath('train_log_{}.log'.format(get_timestamp())))
+    logger.debug("logging info to file: {}".format(log_file_handler.baseFilename))
+    logger.addHandler(log_file_handler)
+    a.train_models(seed_papers=seed_papers, 
+                    target_papers=target_papers, 
+                    candidate_papers=candidate_papers, 
+                    subdir=model_outdir.name,
+                    transformer_list=transformer_conf.transformer_list,
+                    year_lowpass=year)
+    model_outdir.joinpath('._COMPLETE').touch()
+    logger.removeHandler(log_file_handler)
 
 def main(args):
     fpath = Path(args.id_list)
@@ -123,7 +216,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme)
 
 if __name__ == "__main__":
     total_start = timer()
@@ -135,7 +228,8 @@ if __name__ == "__main__":
     parser.add_argument("id_list", help="tab-separated input file (with header) where the first column is the WoS ID to use")
     parser.add_argument("rownum", type=int, help="row number in the input file (`id_list`) to use (0 indexed)")
     parser.add_argument("basedir", help="output base directory (should already exist, and contain seed/candidate papers in a subfolder)")
-    parser.add_argument("--years", required=True, help="path to TSV file containing the publication year for the papers (if the directory doesn't have a 'paper_info.json' file)")
+    parser.add_argument("transformer_scheme", type=int, default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
+    parser.add_argument("--years", required=True, help="path to TSV file containing the publication year for the papers")
     parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
