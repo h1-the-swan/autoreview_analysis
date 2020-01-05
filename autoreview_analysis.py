@@ -28,6 +28,8 @@ pattern_predicted_true = re.compile(r"True\s+?(\d+)\n")
 pattern_log_line_split = re.compile(r"\d\d.*? : ")
 pattern_paper_set_sizes = re.compile(r"after year.*?size of haystack: (\d+).*?(\d+) target papers\. (\d+) of these", 
                                      flags=re.DOTALL) # group 1 is num_candidates, group 2 is num_target, group 3 is num_target_in_candidates
+pattern_clf = re.compile(r"(\S+\(.*?\))\s.*?Fitting pipeline", flags=re.DOTALL)  # group 1 is the string representation of the classifier
+pattern_feature_names = re.compile(r"feature names: (.*)$", flags=re.MULTILINE)
 
 def get_logfname(basedir, n, logtype='collect'):
     return basedir.joinpath("select_wos_id_and_{}_{}.out".format(logtype, n))
@@ -37,6 +39,100 @@ class NoDataError(Exception):
 
 class LogFormatError(Exception):
     pass
+
+def get_num_seed(path):
+    """Right now, one of the only ways to get the number of seeds is to search for the seed papers and count the number of rows.
+    TODO: find a better way
+
+    :path: Path object. Will search within this path for `seed_papers.pickle`, then go back one directory and search again, etc.
+    :returns: number of seed papers (int)
+
+    """
+    path = path.resolve()
+    if not path.is_dir():
+        path = path.parent
+    while True:
+        seed_fpath = path.joinpath('seed_papers.pickle')
+        if seed_fpath.exists():
+            seed_papers = pd.read_pickle(seed_fpath)
+            return len(seed_papers)
+
+        # if not found, climb up one directory and try again
+        path = path.joinpath('..').resolve()
+        if len(path.parts) == 1:
+            # if we've gone all the way up to the root directory, stop. We have failed.
+            return None
+
+def parse_train_log(log_fpath):
+    train_log = log_fpath.read_text()
+    log_split = train_log.split('========Pipeline:\n')
+    sizes = pattern_paper_set_sizes.findall(log_split[0])
+    if not sizes:
+        raise LogFormatError("set sizes pattern not found in log file: {}".format(log_fpath))
+    sizes = [int(x) for x in sizes[0]]
+    num_candidates, num_target, num_target_in_candidates = sizes
+    num_seed = get_num_seed(log_fpath)
+    models = [] # list of AutoreviewAnalysisModel instances
+    for model_idx, model_txt in enumerate(log_split[1:]):
+        # get the string representation of the classifier
+        m = pattern_clf.search(model_txt)
+        clf = m.group(1) if m else None
+        clf_type = clf[:clf.find("(")]
+
+        m = pattern_feature_names.search(model_txt)
+        feature_names = m.group(1) if m else None
+        
+        m = pattern_predicted_false.search(model_txt)
+        score_false = int(m.group(1)) if m else 0
+        
+        m = pattern_predicted_true.search(model_txt)
+        score_true = int(m.group(1)) if m else 0
+        score = score_true / num_target
+        # this_model = {
+        #     'clf': clf,
+        #     'clf_type': clf_type,
+        #     'num_correctly_predicted': score_true,
+        #     'score_correctly_predicted': score
+        # }
+        this_model = AutoreviewAnalysisModel(
+            log_fpath=log_fpath,
+            model_idx=model_idx,
+            clf=clf,
+            clf_type=clf_type,
+            feature_names=feature_names,
+            num_correctly_predicted=score_true,
+            score_correctly_predicted=score,
+            num_seed=num_seed,
+            num_candidates=num_candidates,
+            num_target=num_target,
+            num_target_in_candidates=num_target_in_candidates
+        )
+        models.append(this_model)
+    return models
+
+class AutoreviewAnalysisModel:
+
+    """Represents stats for a single trained model (e.g. LogisticRegression or RandomForestClassifier)"""
+
+    def __init__(self, log_fpath=None, dirpath=None, model_idx=None, clf=None, clf_type=None, feature_names=None, num_correctly_predicted=None, score_correctly_predicted=None, num_seed=None, num_target=None, num_candidates=None, num_target_in_candidates=None):
+        self.log_fpath = log_fpath
+        self.dirpath = dirpath
+        if self.dirpath is None and self.log_fpath is not None:
+            self.dirpath = self.log_fpath.parent
+        self.model_idx = model_idx  # index of model within the train log
+        self.train_log = None
+        self.clf = clf  # string representing the model and model parameters
+        self.clf_type = clf_type
+        self.feature_names = feature_names
+        self.num_correctly_predicted = num_correctly_predicted
+        self.score_correctly_predicted = score_correctly_predicted
+        self.num_seed = num_seed
+        self.num_target = num_target
+        self.num_candidates_before_year_lowpass = None
+        self.num_candidates = num_candidates  # after year filter
+        self.num_target_in_candidates = num_target_in_candidates  # number of target papers that appear in the candidate set
+
+        
 
 class AutoreviewAnalysis:
     def __init__(self, basedir, row_num, parent=None):
