@@ -2,7 +2,7 @@
 
 DESCRIPTION = """Given an input file with one row per review article WoS ID, select a single row, and train models (provided that seed/candidate sets have already been generated)."""
 
-import sys, os, time
+import sys, os, time, json
 from pathlib import Path
 from datetime import datetime
 from timeit import default_timer as timer
@@ -79,7 +79,24 @@ def get_wos_id(fpath, row_num, sep='\t', header=True, col_num=0):
 #         pc._config.teardown()
 #
 
-def get_year(paper_id, years_fname, id_colname='UID', years_colname='pub_date', sep='\t'):
+def get_year(paper_id=None, years_fname=None, dirpath=None):
+    """Get year of the paper from a TSV file. If no TSV file is provided, look for a paper_info.json file with a 'pub_year' field instead.
+
+    Must supply as arguments EITHER paper_id and years_fname, OR dirpath. If all three are supplied, the TSV will be used
+
+    :paper_id: WoS paper id
+    :years_fname: filename for TSV file containing the year
+    :dirpath: directory Path (containing a 'paper_info.json' file)
+    :returns: year (int), or None if the year is unavailable
+
+    """
+    if years_fname is not None:
+        return _get_year_from_csv(paper_id, years_fname)
+    if dirpath is not None:
+        return _get_year_from_paperinfo_json(dirpath)
+    return None
+
+def _get_year_from_csv(paper_id, years_fname, id_colname='UID', years_colname='pub_date', sep='\t'):
     """Get the publication year
 
     :paper_id: WoS paper id
@@ -91,6 +108,22 @@ def get_year(paper_id, years_fname, id_colname='UID', years_colname='pub_date', 
     date = df[df[id_colname]==paper_id][years_colname].iloc[0]
     date = pd.to_datetime(str(date))
     return date.year
+
+def _get_year_from_paperinfo_json(dirpath, field='pub_year'):
+    """Get the publication year from a 'paper_info.json' file
+
+    :dirpath: directory containing a 'paper_info.json' file
+    :returns: year (int), or None if the year is unavailable
+
+    """
+    paperinfo_fpath = dirpath.joinpath('paper_info.json')
+    if not paperinfo_fpath.exists():
+        return None
+    paperinfo = json.loads(paperinfo_fpath.read_text())
+    if field in paperinfo:
+        return paperinfo[field]
+    else:
+        return None
 
 class TransformerSelection:
 
@@ -209,7 +242,7 @@ def main(args):
     outdir = basedir.joinpath(paper_id_slug)
     if not outdir.is_dir():
         raise RuntimeError("Could not find directory {}".format(outdir))
-    year = get_year(paper_id, args.years)
+    year = get_year(paper_id, args.years, outdir)
     logger.debug("year is {}".format(year))
     subdirs = [x for x in outdir.glob('seed*') if x.is_dir()]
     subdirs.sort()
@@ -229,7 +262,7 @@ if __name__ == "__main__":
     parser.add_argument("rownum", type=int, help="row number in the input file (`id_list`) to use (0 indexed)")
     parser.add_argument("basedir", help="output base directory (should already exist, and contain seed/candidate papers in a subfolder)")
     parser.add_argument("transformer_scheme", type=int, default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
-    parser.add_argument("--years", required=True, help="path to TSV file containing the publication year for the papers")
+    parser.add_argument("--years", help="path to TSV file containing the publication year for the papers.")
     parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
