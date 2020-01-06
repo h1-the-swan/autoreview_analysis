@@ -217,6 +217,9 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme):
     log_file_handler = logging.FileHandler(model_outdir.joinpath('train_log_{}.log'.format(get_timestamp())))
     logger.debug("logging info to file: {}".format(log_file_handler.baseFilename))
     logger.addHandler(log_file_handler)
+    logger.debug("number of seed papers: {}".format(len(seed_papers)))
+    logger.debug("number of target papers: {}".format(len(target_papers)))
+    logger.debug("number of candidate papers (haystack): {}".format(len(candidate_papers)))
     a.train_models(seed_papers=seed_papers, 
                     target_papers=target_papers, 
                     candidate_papers=candidate_papers, 
