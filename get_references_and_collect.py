@@ -99,6 +99,8 @@ class PaperCollector(object):
         logger.debug('saving paper info for this paper ({}) to {}'.format(self.paper_id, outfpath))
         review_paper = self.df_papers[self.df_papers['UID']==self.paper_id]
         if len(review_paper) == 1:
+            if 'pub_date' in review_paper.columns:
+                review_paper['pub_year'] = pd.to_datetime(review_paper['pub_date']).dt.year
             review_paper.iloc[0].to_json(outfpath)
         else:
             logger.debug("could not save paper info for paper {}. expected 1 row, but got {}".format(self.paper_id, len(review_paper)))
