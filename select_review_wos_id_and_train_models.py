@@ -156,6 +156,7 @@ class TransformerSelection:
             2: self.network,
             3: self.title,
             4: self.network_title_year,
+            5: self.clustering_only,
         }
         return switch[switch_num]()
 
@@ -193,6 +194,14 @@ class TransformerSelection:
             self.transformers['ef'],
             self.transformers['avg_title_tfidf_cosine_similarity'],
             self.transformers['year']
+        ]
+
+    def clustering_only(self):
+        """clustering features only
+        """
+        self.name = "clustering_features_only"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
         ]
 
 def run_train(paper_id, year, outdir, seed, transformer_scheme):
