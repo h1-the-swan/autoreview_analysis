@@ -77,6 +77,8 @@ def parse_train_log(log_fpath):
         # get the string representation of the classifier
         m = pattern_clf.search(model_txt)
         clf = m.group(1) if m else None
+        if clf is None:
+            continue
         clf_type = clf[:clf.find("(")]
 
         m = pattern_feature_names.search(model_txt)
