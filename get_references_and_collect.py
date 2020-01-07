@@ -173,6 +173,7 @@ class PaperCollector(object):
 
 def main(args):
     config = Config()
+    use_spark = not args.no_spark
     try:
         pc = PaperCollector(config,
                     basedir = args.basedir,
@@ -181,7 +182,8 @@ def main(args):
                     papers=args.papers,
                     sample_size=args.sample_size,
                     id_colname=args.id_colname,
-                    cited_colname=args.cited_colname)
+                    cited_colname=args.cited_colname,
+                    use_spark=use_spark)
         pc.main(args)
     finally:
         pc._config.teardown()
@@ -195,12 +197,13 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("basedir", help="output base directory (will be created if it doesn't exist)")
-    parser.add_argument("paper_id", help="paper ID to start with")
+    parser.add_argument("paper_id", help="paper ID to use")
     parser.add_argument("--citations", help="citations data (to be read by spark)")
     parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
     parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")
     parser.add_argument("--id-colname", default='UID', help="column name for paper id (default: \"UID\")")
     parser.add_argument("--cited-colname", default='cited_UID', help="column name for cited paper id (default: \"cited_UID\")")
+    parser.add_argument("--no-spark", action='store_true', help="don't use spark to collect candidate papers")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args
     args = parser.parse_args()
