@@ -54,6 +54,13 @@ def main(args):
         sdf_citations = load_spark_dataframe(args.citations, spark)
         logger.debug("citations dataframe has {} rows".format(sdf_citations.count()))
 
+        logger.debug("joining citations dataframe with papers dataframe IDs on both columns, to filter out dropped rows")
+        sdf_papers_ids = sdf_papers.select([args.id_colname])
+        sdf_citations = sdf_citations.join(sdf_papers_ids, on=args.id_colname, how='inner')
+        sdf_citations = sdf_citations.join(sdf_papers_ids.withColumnRenamed(args.id_colname, args.cited_colname), on=args.cited_colname, how='inner')
+        sdf_citations.persist()
+        logger.debug("citations dataframe now has {} rows".format(sdf_citations.count()))
+
         columns_to_keep = [id_colname, 'doi', 'pub_date', 'title', 'title_source']
         sdf_reviews = sdf_reviews.select(columns_to_keep)
         logger.debug("merging reviews with citations and counting references")
@@ -85,6 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--papers", help="path to papers/cluster data (to be read by spark)")
     parser.add_argument("--citations", help="citations data (to be read by spark)")
     parser.add_argument("--id-colname", default='UID', help="column name for paper id (default: \"UID\")")
+    parser.add_argument("--cited-colname", default='cited_UID', help="column name for cited paper id (default: \"cited_UID\")")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args
     args = parser.parse_args()

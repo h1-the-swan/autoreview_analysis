@@ -177,7 +177,11 @@ class AutoreviewAnalysis:
             self.train_log = None
         
     def get_wos_id_slug(self):
-        return pattern_wos_id_slug.search(self.collect_log).group(1)
+        m = pattern_wos_id_slug.search(self.collect_log)
+        if m:
+            return m.group(1)
+        else:
+            raise LogFormatError("could not find WoS ID slug in log {}".format(self.collect_log_fpath))
     
     def get_reference_ids(self):
         fpath = self.dirpath.joinpath('reference_ids.csv')
