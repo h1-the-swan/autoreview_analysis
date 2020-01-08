@@ -31,6 +31,8 @@ pattern_paper_set_sizes = re.compile(r"after year.*?size of haystack: (\d+).*?(\
 pattern_clf = re.compile(r"(\S+\(.*?\))\s.*?Fitting pipeline", flags=re.DOTALL)  # group 1 is the string representation of the classifier
 pattern_feature_names = re.compile(r"feature names: (.*)$", flags=re.MULTILINE)
 
+from autoreview.util import load_data_from_pickles
+
 def get_logfname(basedir, n, logtype='collect'):
     return basedir.joinpath("select_wos_id_and_{}_{}.out".format(logtype, n))
 
