@@ -28,6 +28,8 @@ from autoreview.util import ItemSelector, DataFrameColumnTransformer, ClusterTra
 from slugify import slugify
 import pandas as pd
 
+from custom_features import AbsoluteDistanceToSeedTransformer
+
 def get_timestamp():
     return "{:%Y%m%d%H%M%S%f}".format(datetime.now())
 
@@ -63,8 +65,12 @@ class TransformerSelection:
                 ('avg_distance_to_train', ClusterTransformer(self.seed_papers)),
             'ef': 
                 ('ef', DataFrameColumnTransformer('EF')),
+            'efDist': 
+                ('efDist', AbsoluteDistanceToSeedTransformer('year', seed_papers=self.seed_papers)),
             'year': 
                 ('year', DataFrameColumnTransformer('year')),
+            'yearDist': 
+                ('yearDist', AbsoluteDistanceToSeedTransformer('year', seed_papers=self.seed_papers)),
             'avg_title_tfidf_cosine_similarity': 
                 ('avg_title_tfidf_cosine_similarity', AverageTfidfCosSimTransformer(seed_papers=self.seed_papers, colname='title')),
         }
@@ -80,6 +86,8 @@ class TransformerSelection:
             3: self.title,
             4: self.network_title_year,
             5: self.clustering_only,
+            6: self.network_efDist,
+            7: self.network_efDist_title_yearDist,
         }
         return switch[switch_num]()
 
@@ -125,6 +133,25 @@ class TransformerSelection:
         self.name = "clustering_features_only"
         self.transformer_list = [
             self.transformers['avg_distance_to_train'],
+        ]
+
+    def network_efDist(self):
+        """network features only, using EF distance from mean of seed papers
+        """
+        self.name = "network_features_only_efDist"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['efDist'],
+        ]
+
+    def network_efDist_title_yearDist(self):
+        """features: network, EF distance from mean of seed papers, title, and year distance from mean of seed papers"""
+        self.name = "network_efDist_title_yearDist"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['efDist'],
+            self.transformers['avg_title_tfidf_cosine_similarity'],
+            self.transformers['yearDist']
         ]
 
 def run_train(paper_id, year, outdir, seed, transformer_scheme):
