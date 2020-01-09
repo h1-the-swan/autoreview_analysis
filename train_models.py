@@ -175,7 +175,8 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme):
     model_outdir.mkdir(exist_ok=True)
     log_file_handler = logging.FileHandler(model_outdir.joinpath('train_log_{}.log'.format(get_timestamp())))
     logger.debug("logging info to file: {}".format(log_file_handler.baseFilename))
-    logger.addHandler(log_file_handler)
+    # logger.addHandler(log_file_handler)
+    logging.getLogger('').addHandler(log_file_handler)
     logger.debug("number of seed papers: {}".format(len(seed_papers)))
     logger.debug("number of target papers: {}".format(len(target_papers)))
     logger.debug("number of candidate papers (haystack): {}".format(len(candidate_papers)))
@@ -186,7 +187,8 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme):
                     transformer_list=transformer_conf.transformer_list,
                     year_lowpass=year)
     model_outdir.joinpath('._COMPLETE').touch()
-    logger.removeHandler(log_file_handler)
+    # logger.removeHandler(log_file_handler)
+    logging.getLogger('').removeHandler(log_file_handler)
 
 def main(args):
     dirpath = Path(args.dirname).resolve()
