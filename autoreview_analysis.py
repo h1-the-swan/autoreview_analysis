@@ -28,6 +28,7 @@ pattern_predicted_true = re.compile(r"True\s+?(\d+)\n")
 pattern_log_line_split = re.compile(r"\d\d.*? : ")
 pattern_paper_set_sizes = re.compile(r"after year.*?size of haystack: (\d+).*?(\d+) target papers\. (\d+) of these", 
                                      flags=re.DOTALL) # group 1 is num_candidates, group 2 is num_target, group 3 is num_target_in_candidates
+pattern_seed_size = re.compile(r"number of seed papers: (\d+)\s")
 pattern_clf = re.compile(r"(\S+\(.*?\))\s.*?Fitting pipeline", flags=re.DOTALL)  # group 1 is the string representation of the classifier
 pattern_feature_names = re.compile(r"feature names: (.*)$", flags=re.MULTILINE)
 
@@ -65,15 +66,28 @@ def get_num_seed(path):
             # if we've gone all the way up to the root directory, stop. We have failed.
             return None
 
-def parse_train_log(log_fpath):
-    train_log = log_fpath.read_text()
+def parse_train_log(train_log, yield_models=False):
+    # if yield_models is true, yield the models one by one instead of returning a list
+    # if the input is a Path object, read it. otherwise, assume it is the actual text of the
+    if isinstance(train_log, Path):
+        log_fpath = train_log
+        train_log = train_log.read_text()
+    else:
+        log_fpath = None
     log_split = train_log.split('========Pipeline:\n')
     sizes = pattern_paper_set_sizes.findall(log_split[0])
     if not sizes:
-        raise LogFormatError("set sizes pattern not found in log file: {}".format(log_fpath))
+        raise LogFormatError("set sizes pattern not found in this log")
     sizes = [int(x) for x in sizes[0]]
     num_candidates, num_target, num_target_in_candidates = sizes
-    num_seed = get_num_seed(log_fpath)
+
+    match_seed = pattern_seed_size.search(log_split[0])
+    if match_seed:
+        num_seed = match_seed.group(1)
+    else:
+        # fallback method
+        num_seed = get_num_seed(log_fpath)
+
     models = [] # list of AutoreviewAnalysisModel instances
     for model_idx, model_txt in enumerate(log_split[1:]):
         # get the string representation of the classifier
@@ -111,8 +125,12 @@ def parse_train_log(log_fpath):
             num_target=num_target,
             num_target_in_candidates=num_target_in_candidates
         )
-        models.append(this_model)
-    return models
+        if yield_models is True:
+            yield this_model
+        else:
+            models.append(this_model)
+    if yield_models is False:
+        return models
 
 class AutoreviewAnalysisModel:
 
