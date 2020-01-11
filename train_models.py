@@ -88,6 +88,7 @@ class TransformerSelection:
             5: self.clustering_only,
             6: self.network_efDist,
             7: self.network_efDist_title_yearDist,
+            8: self.network_efDist_title,
         }
         return switch[switch_num]()
 
@@ -152,6 +153,15 @@ class TransformerSelection:
             self.transformers['efDist'],
             self.transformers['avg_title_tfidf_cosine_similarity'],
             self.transformers['yearDist']
+        ]
+
+    def network_efDist_title(self):
+        """features: network, EF distance from mean of seed papers, title"""
+        self.name = "network_efDist_title"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['efDist'],
+            self.transformers['avg_title_tfidf_cosine_similarity'],
         ]
 
 def run_train(paper_id, year, outdir, seed, transformer_scheme):
