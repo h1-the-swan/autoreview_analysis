@@ -81,7 +81,8 @@ class TransformerSelection:
 
     def _switch(self, switch_num=1):
         """
-        dispatch method
+        dispatch method.
+        Whichever number is supplied to switch_num is the method that will run.
         """
         switch = {
             1: self.network_and_title,
@@ -94,6 +95,7 @@ class TransformerSelection:
             8: self.network_efDist_title,
             9: self.embeddings_only,
             10: self.network_efDist_embeddings,
+            11: self.network_efDist_embeddings_yearDist,
         }
         return switch[switch_num]()
 
@@ -183,6 +185,16 @@ class TransformerSelection:
             self.transformers['avg_distance_to_train'],
             self.transformers['efDist'],
             self.transformers['title_embeddings'],
+        ]
+
+    def network_efDist_embeddings_yearDist(self):
+        """features: cluster distance, EF distance from mean of seed papers, title embeddings cosine similarity with average seed papers, year distance from mean of seed papers"""
+        self.name = "network_efDist_embeddings_yearDist"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['efDist'],
+            self.transformers['title_embeddings'],
+            self.transformers['yearDist']
         ]
 
 def get_embeddings(dirpath, all_papers, glob_pattern='embeddings*.pickle', id_colname='ID'):
