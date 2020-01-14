@@ -123,7 +123,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed, args.transformer_scheme)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings)
 
 if __name__ == "__main__":
     total_start = timer()
@@ -138,6 +138,7 @@ if __name__ == "__main__":
     parser.add_argument("transformer_scheme", type=int, default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
     parser.add_argument("--years", help="path to TSV file containing the publication year for the papers.")
     parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
+    parser.add_argument("--embeddings", help="path to directory containing embeddings as pickled pandas Series")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
     # parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")

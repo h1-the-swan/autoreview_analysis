@@ -20,6 +20,9 @@ logging.basicConfig(format='%(asctime)s %(name)s.%(lineno)d %(levelname)s : %(me
 logger = logging.getLogger('__main__').getChild(__name__)
 
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.metrics.pairwise import cosine_similarity
+
+import numpy as np
 
 class AbsoluteDistanceToSeedTransformer(BaseEstimator, TransformerMixin):
     """
@@ -36,4 +39,29 @@ class AbsoluteDistanceToSeedTransformer(BaseEstimator, TransformerMixin):
         seed_mean = self.seed_papers[self.colname].mean()
         abs_dist = df[self.colname].apply(lambda x: abs(x - seed_mean))
         return abs_dist.to_numpy().reshape(-1, 1)
+
+class EmbeddingSimilarityTransformer(BaseEstimator, TransformerMixin):
+    """
+    cosine similarity between the embedding vector and the average vector of the seed papers
+    """
+    def __init__(self, seed_papers=None, embeddings=None, id_colname='ID'):
+        """
+        :seed_papers: dataframe of seed papers
+        :embeddings: dictionary mapping paper ID to embedding vector. should include all of the seed and test papers
+        """
+        self.seed_papers = seed_papers
+        self.embeddings = embeddings
+        self.id_colname = id_colname
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, df):
+        seed_embeddings = [self.embeddings[id_] for id_ in self.seed_papers[self.id_colname].values if id_ in self.embeddings]
+        seed_embeddings = np.array(seed_embeddings)
+        test_embeddings = [self.embeddings[id_] for id_ in df[self.id_colname].values if id_ in self.embeddings]
+        test_embeddings = np.array(test_embeddings)
+        avg_seed_embeddings = seed_embeddings.mean(axis=0).reshape(1, -1)
+        csims = cosine_similarity(test_embeddings, avg_seed_embeddings)
+        return csims
 

@@ -28,7 +28,7 @@ from autoreview.util import ItemSelector, DataFrameColumnTransformer, ClusterTra
 from slugify import slugify
 import pandas as pd
 
-from custom_features import AbsoluteDistanceToSeedTransformer
+from custom_features import AbsoluteDistanceToSeedTransformer, EmbeddingSimilarityTransformer
 
 def get_timestamp():
     return "{:%Y%m%d%H%M%S%f}".format(datetime.now())
@@ -56,9 +56,10 @@ class TransformerSelection:
     Specify different arrangements of features/transformers to use as inputs for the autoreview models
     """
 
-    def __init__(self, switch_num=1, seed_papers=None):
+    def __init__(self, switch_num=1, seed_papers=None, embeddings=None):
         self.switch_num = switch_num
         self.seed_papers = seed_papers
+        self.embeddings = embeddings
         # potential features/transformers to use
         self.transformers = {
             'avg_distance_to_train': 
@@ -73,6 +74,8 @@ class TransformerSelection:
                 ('yearDist', AbsoluteDistanceToSeedTransformer('year', seed_papers=self.seed_papers)),
             'avg_title_tfidf_cosine_similarity': 
                 ('avg_title_tfidf_cosine_similarity', AverageTfidfCosSimTransformer(seed_papers=self.seed_papers, colname='title')),
+            'title_embeddings':
+                ('title_embeddings', EmbeddingSimilarityTransformer(seed_papers=self.seed_papers, embeddings=self.embeddings))
         }
         self._switch(self.switch_num)
 
@@ -89,6 +92,7 @@ class TransformerSelection:
             6: self.network_efDist,
             7: self.network_efDist_title_yearDist,
             8: self.network_efDist_title,
+            9: self.embeddings_only,
         }
         return switch[switch_num]()
 
@@ -164,7 +168,34 @@ class TransformerSelection:
             self.transformers['avg_title_tfidf_cosine_similarity'],
         ]
 
-def run_train(paper_id, year, outdir, seed, transformer_scheme):
+    def embeddings_only(self):
+        """features: title embeddings cosine similarity with average seed papers"""
+        self.name = "embeddings_only"
+        self.transformer_list = [
+            self.transformers['title_embeddings'],
+        ]
+
+def get_embeddings(dirpath, all_papers, glob_pattern='embeddings*.pickle', id_colname='ID'):
+    """get a dictionary mapping ID to embedding vector
+
+    :dirpath: path to directory containing embeddings as pickled pandas Series
+    :all_papers: dataframe of all papers
+    :returns: dictionary
+
+    """
+    dirpath = Path(dirpath)
+    g = dirpath.glob(glob_pattern)
+    df = pd.DataFrame()
+    logger.debug("getting embeddings for {} papers from directory: {}".format(len(all_papers), dirpath))
+    for fpath in g:
+        _embeddings = pd.read_pickle(fpath)
+        _embeddings.name = 'embedding'
+        subset = all_papers.merge(_embeddings, how='inner', left_on=id_colname, right_index=True)
+        df = pd.concat([df, subset])
+    embeddings_dict = df.set_index('ID')['embedding'].to_dict()
+    return embeddings_dict
+
+def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None):
     """Train models
 
     :paper_id: paper ID
@@ -177,6 +208,13 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme):
     a = Autoreview(outdir, random_seed=seed, use_spark=False)
     candidate_papers, seed_papers, target_papers = load_data_from_pickles(a.outdir)
     transformer_conf = TransformerSelection(transformer_scheme, seed_papers=seed_papers)
+    if 'embedding' in transformer_conf.name:
+        if embeddings is None:
+            raise ValueError("'embeddings' must be specified for transformer scheme {} ({})".format(transformer_scheme, transformer_conf.name))
+        all_papers = pd.concat([candidate_papers, seed_papers, target_papers]).drop_duplicates(subset=['ID'])
+        embeddings_dict = get_embeddings(embeddings, all_papers)
+        # reinitialize transformer_conf with embeddings_dict specified
+        transformer_conf = TransformerSelection(transformer_scheme, seed_papers=seed_papers, embeddings=embeddings_dict)
     model_outdir = outdir.joinpath(transformer_conf.name)
     logger.debug("output directory is {}".format(model_outdir))
     if model_outdir.is_dir() and model_outdir.joinpath('._COMPLETE').exists():
@@ -227,6 +265,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("dirname", help="input/output directory (should already exist, and contain seed/candidate paper splits in subfolders. should also contain a 'paper_info.json' file)")
     parser.add_argument("transformer_scheme", type=int, nargs='?', default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
+    parser.add_argument("--embeddings", help="path to directory containing embeddings as pickled pandas Series")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args
     args = parser.parse_args()
