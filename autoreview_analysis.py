@@ -68,7 +68,7 @@ def get_num_seed(path):
 
 def parse_train_log(train_log, yield_models=False):
     # if yield_models is true, yield the models one by one instead of returning a list
-    # if the input is a Path object, read it. otherwise, assume it is the actual text of the
+    # if the input is a Path object, read it. otherwise, assume it is the actual text of the log
     if isinstance(train_log, Path):
         log_fpath = train_log
         train_log = train_log.read_text()

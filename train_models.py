@@ -93,6 +93,7 @@ class TransformerSelection:
             7: self.network_efDist_title_yearDist,
             8: self.network_efDist_title,
             9: self.embeddings_only,
+            10: self.network_efDist_embeddings,
         }
         return switch[switch_num]()
 
@@ -160,7 +161,7 @@ class TransformerSelection:
         ]
 
     def network_efDist_title(self):
-        """features: network, EF distance from mean of seed papers, title"""
+        """features: network, EF distance from mean of seed papers, title (TfIdf cosine similarity with average of seed papers)"""
         self.name = "network_efDist_title"
         self.transformer_list = [
             self.transformers['avg_distance_to_train'],
@@ -172,6 +173,15 @@ class TransformerSelection:
         """features: title embeddings cosine similarity with average seed papers"""
         self.name = "embeddings_only"
         self.transformer_list = [
+            self.transformers['title_embeddings'],
+        ]
+
+    def network_efDist_embeddings(self):
+        """features: cluster distance, EF distance from mean of seed papers, title embeddings cosine similarity with average seed papers"""
+        self.name = "network_efDist_embeddings"
+        self.transformer_list = [
+            self.transformers['avg_distance_to_train'],
+            self.transformers['efDist'],
             self.transformers['title_embeddings'],
         ]
 
@@ -208,7 +218,7 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None)
     a = Autoreview(outdir, random_seed=seed, use_spark=False)
     candidate_papers, seed_papers, target_papers = load_data_from_pickles(a.outdir)
     transformer_conf = TransformerSelection(transformer_scheme, seed_papers=seed_papers)
-    if 'embedding' in transformer_conf.name:
+    if 'embedding' in transformer_conf.name.lower():
         if embeddings is None:
             raise ValueError("'embeddings' must be specified for transformer scheme {} ({})".format(transformer_scheme, transformer_conf.name))
         all_papers = pd.concat([candidate_papers, seed_papers, target_papers]).drop_duplicates(subset=['ID'])
