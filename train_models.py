@@ -217,7 +217,7 @@ def get_embeddings(dirpath, all_papers, glob_pattern='embeddings*.pickle', id_co
     embeddings_dict = df.set_index('ID')['embedding'].to_dict()
     return embeddings_dict
 
-def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None):
+def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None, save_best=True):
     """Train models
 
     :paper_id: paper ID
@@ -255,7 +255,8 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None)
                     candidate_papers=candidate_papers, 
                     subdir=model_outdir.name,
                     transformer_list=transformer_conf.transformer_list,
-                    year_lowpass=year)
+                    year_lowpass=year,
+                    save_best=save_best)
     model_outdir.joinpath('._COMPLETE').touch()
     # logger.removeHandler(log_file_handler)
     logging.getLogger('').removeHandler(log_file_handler)

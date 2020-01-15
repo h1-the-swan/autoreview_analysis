@@ -103,6 +103,7 @@ def _get_year_from_paperinfo_json(dirpath, field='pub_year'):
 def main(args):
     fpath = Path(args.id_list)
     header = not args.no_header
+    save_best = not args.no_save_best
     paper_id = get_wos_id(fpath, args.rownum, header=header)
     if paper_id is None:
         raise RuntimeError("Could not get the paper ID")
@@ -123,7 +124,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings, save_best=save_best)
 
 if __name__ == "__main__":
     total_start = timer()
@@ -138,6 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("transformer_scheme", type=int, default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
     parser.add_argument("--years", help="path to TSV file containing the publication year for the papers.")
     parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
+    parser.add_argument("--no-save-best", action='store_true', help="do not save the best model to pickle file")
     parser.add_argument("--embeddings", help="path to directory containing embeddings as pickled pandas Series")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
