@@ -2,7 +2,7 @@
 
 DESCRIPTION = """Classes to help with analysis of Autoreview experiments"""
 
-import sys, os, time, re
+import sys, os, time, re, json
 from pathlib import Path
 from datetime import datetime
 from timeit import default_timer as timer
@@ -74,6 +74,13 @@ def parse_train_log(train_log, yield_models=False):
         train_log = train_log.read_text()
     else:
         log_fpath = None
+    if yield_models is True:
+        return _parse_train_log_generator(train_log, log_fpath)
+    else:
+        return list(_parse_train_log_generator(train_log, log_fpath))
+
+def _parse_train_log_generator(train_log, log_fpath):
+    # train_log: text of the log
     log_split = train_log.split('========Pipeline:\n')
     sizes = pattern_paper_set_sizes.findall(log_split[0])
     if not sizes:
@@ -125,18 +132,13 @@ def parse_train_log(train_log, yield_models=False):
             num_target=num_target,
             num_target_in_candidates=num_target_in_candidates
         )
-        if yield_models is True:
-            yield this_model
-        else:
-            models.append(this_model)
-    if yield_models is False:
-        return models
+        yield this_model
 
 class AutoreviewAnalysisModel:
 
     """Represents stats for a single trained model (e.g. LogisticRegression or RandomForestClassifier)"""
 
-    def __init__(self, log_fpath=None, dirpath=None, model_idx=None, clf=None, clf_type=None, feature_names=None, num_correctly_predicted=None, score_correctly_predicted=None, num_seed=None, num_target=None, num_candidates=None, num_target_in_candidates=None):
+    def __init__(self, log_fpath=None, dirpath=None, model_idx=None, clf=None, clf_type=None, feature_names=None, num_correctly_predicted=None, score_correctly_predicted=None, num_seed=None, num_target=None, num_candidates=None, num_target_in_candidates=None, paper_info=None):
         self.log_fpath = log_fpath
         self.dirpath = dirpath
         if self.dirpath is None and self.log_fpath is not None:
@@ -153,6 +155,31 @@ class AutoreviewAnalysisModel:
         self.num_candidates_before_year_lowpass = None
         self.num_candidates = num_candidates  # after year filter
         self.num_target_in_candidates = num_target_in_candidates  # number of target papers that appear in the candidate set
+
+        self.paper_info = paper_info
+        if not self.paper_info and self.dirpath is not None:
+            self.paper_info = self.get_paper_info(self.dirpath)
+
+    def get_paper_info(self, path):
+        """find the paper_info.json file, and read it
+
+        :path: Path object. Will search within this path for `paper_info.json`, then go back one directory and search again, etc.
+        :returns: dictionary parsed from JSON file
+
+        """
+        path = path.resolve()
+        if not path.is_dir():
+            path = path.parent
+        while True:
+            paperinfo_fpath = path.joinpath('paper_info.json')
+            if paperinfo_fpath.exists():
+                return json.loads(paperinfo_fpath.read_text())
+
+            # if not found, climb up one directory and try again
+            path = path.joinpath('..').resolve()
+            if len(path.parts) == 1:
+                # if we've gone all the way up to the root directory, stop. We have failed.
+                return None
 
         
 

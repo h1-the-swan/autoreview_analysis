@@ -1,5 +1,5 @@
 attrs==19.3.0
--e git+https://github.com/h1-the-swan/autoreview.git@95251d9834331dbaa018d54988af6a32b23a7254#egg=autoreview
+-e git+https://github.com/h1-the-swan/autoreview.git@8820418dafd30945ecc322b913f0ec0230de3354#egg=autoreview
 backcall==0.1.0
 bleach==3.1.0
 cycler==0.10.0
@@ -34,6 +34,7 @@ pandocfilters==1.4.2
 parso==0.5.2
 pexpect==4.7.0
 pickleshare==0.7.5
+plotly==4.4.1
 prometheus-client==0.7.1
 prompt-toolkit==2.0.10
 ptyprocess==0.6.0
@@ -50,6 +51,7 @@ python-slugify==4.0.0
 pytz==2019.3
 pyzmq==18.1.1
 qtconsole==4.6.0
+retrying==1.3.3
 scikit-learn==0.22
 scipy==1.4.1
 seaborn==0.9.0
