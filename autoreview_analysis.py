@@ -134,6 +134,40 @@ def _parse_train_log_generator(train_log, log_fpath):
         )
         yield this_model
 
+pattern_dirname = re.compile(r"output directory is (\S+)\s")
+
+def get_dirpath_from_log_fragment(log_fragment, basedir, pattern=pattern_dirname):
+    m = pattern_dirname.search(log_fragment)
+    if not m:
+        return None
+    output_dirpath = m.group(1)
+    # align with basedir
+    output_dirpath = output_dirpath[output_dirpath.find(str(basedir)):]
+    output_dirpath = Path(output_dirpath)
+    return output_dirpath
+
+def process_one_log(fpath, split_phrase='training models for subdir', basedir=Path('.')):
+    """process one train log
+
+    :fpath: Path to train log file
+    :yields: log fragments for subdirs
+
+    """
+    log_txt = fpath.read_text()
+    log_split = log_txt.split(split_phrase)
+    if len(log_split) <= 1:
+        # no data in this log, or not properly formatted
+        return (None, None)
+    for log_fragment in log_split[1:]:
+        if 'skipping' in log_fragment.lower():
+            continue
+        if 'CANCELLED' in log_fragment:
+            continue
+        log_fragment = split_phrase + log_fragment
+        output_dirpath = get_dirpath_from_log_fragment(log_fragment, basedir)
+        if output_dirpath:
+            yield (output_dirpath, log_fragment)
+
 class AutoreviewAnalysisModel:
 
     """Represents stats for a single trained model (e.g. LogisticRegression or RandomForestClassifier)"""

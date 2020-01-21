@@ -262,6 +262,7 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None,
     logging.getLogger('').removeHandler(log_file_handler)
 
 def main(args):
+    save_best = not args.no_save_best
     dirpath = Path(args.dirname).resolve()
     if dirpath.is_dir():
         logger.debug("Output dirpath {} exists. Using this directory.".format(dirpath))
@@ -277,7 +278,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed, args.transformer_scheme)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings=save_best=save_best)
 
 if __name__ == "__main__":
     total_start = timer()
@@ -288,6 +289,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("dirname", help="input/output directory (should already exist, and contain seed/candidate paper splits in subfolders. should also contain a 'paper_info.json' file)")
     parser.add_argument("transformer_scheme", type=int, nargs='?', default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
+    parser.add_argument("--no-save-best", action='store_true', help="do not save the best model to pickle file")
     parser.add_argument("--embeddings", help="path to directory containing embeddings as pickled pandas Series")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args

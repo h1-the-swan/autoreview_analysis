@@ -144,6 +144,7 @@ def main(args):
     logger.debug('loaded {} AutoreviewAnalysisModel objects'.format(len(autoreview_analysis_models)))
     sklearn_model_fpaths = get_sklearn_model_fpaths(autoreview_analysis_models)
     sklearn_model_fpaths = list(sklearn_model_fpaths)
+    sklearn_model_fpaths = [x for x in sklearn_model_fpaths if 'seed_papers_size_50/' in str(x)]
     sklearn_model_fpaths.sort()
     logger.debug('found {} sklearn_model_fpaths'.format(len(sklearn_model_fpaths)))
     for i, trained_model_fpath in enumerate(sklearn_model_fpaths):
@@ -160,16 +161,12 @@ def main(args):
             logger.warn('could not find year for model: {}'.format(trained_model_fpath))
             logger.debug('skipping {}'.format(trained_model_fpath))
             continue
-        logger.debug('year is {}'.format(year))
         candidate_papers, seed_papers, target_papers = prepare_data_for_model(autoreview_analysis_model_match.dirpath.parent, year=year, id_colname='ID')
         # logger.debug('loaded {} candidate_papers, {} seed_papers, {} target_papers'.format(len(candidate_papers), len(seed_papers), len(target_papers)))
         df_preds = predict_ranks_from_data(trained_model, candidate_papers)
         # logger.debug('predicted {} ranks'.format(len(df_preds)))
-        output(basedir, i, df_preds, autoreview_analysis_model_match, trained_model_fpath)
+        output(outdir_base, i, df_preds, autoreview_analysis_model_match, trained_model_fpath)
 
-
-    # PSEUDOCODE:
-    #     output(df_preds, autoreview_analysis_model_match, trained_model_fpath)
 
 
 if __name__ == "__main__":
