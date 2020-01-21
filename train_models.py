@@ -278,7 +278,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings=save_best=save_best)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings, save_best=save_best)
 
 if __name__ == "__main__":
     total_start = timer()
