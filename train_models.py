@@ -217,7 +217,7 @@ def get_embeddings(dirpath, all_papers, glob_pattern='embeddings*.pickle', id_co
     embeddings_dict = df.set_index('ID')['embedding'].to_dict()
     return embeddings_dict
 
-def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None, save_best=True):
+def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None, save_best=True, force_rerun=False):
     """Train models
 
     :paper_id: paper ID
@@ -240,8 +240,11 @@ def run_train(paper_id, year, outdir, seed, transformer_scheme, embeddings=None,
     model_outdir = outdir.joinpath(transformer_conf.name)
     logger.debug("output directory is {}".format(model_outdir))
     if model_outdir.is_dir() and model_outdir.joinpath('._COMPLETE').exists():
-        logger.debug("experiments for {} have already been completed. Skipping".format(model_outdir))
-        return
+        if force_rerun is False:
+            logger.debug("experiments for {} have already been completed. Skipping".format(model_outdir))
+            return
+        else:
+            logger.debug("experiments for {} have already been completed, but force_rerun is True. Rerunning experiments".format(model_outdir))
     model_outdir.mkdir(exist_ok=True)
     log_file_handler = logging.FileHandler(model_outdir.joinpath('train_log_{}.log'.format(get_timestamp())))
     logger.debug("logging info to file: {}".format(log_file_handler.baseFilename))
@@ -278,7 +281,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings, save_best=save_best)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings, save_best=save_best, force_rerun=args.force_rerun)
 
 if __name__ == "__main__":
     total_start = timer()
@@ -291,6 +294,7 @@ if __name__ == "__main__":
     parser.add_argument("transformer_scheme", type=int, nargs='?', default=1, help="integer mapping which features/transformers to use (see the TransformerSelection object definition)")
     parser.add_argument("--no-save-best", action='store_true', help="do not save the best model to pickle file")
     parser.add_argument("--embeddings", help="path to directory containing embeddings as pickled pandas Series")
+    parser.add_argument("--force-rerun", action='store_true', help="force rerun of training for models that have already completed")
     parser.add_argument("--debug", action='store_true', help="output debugging info")
     global args
     args = parser.parse_args()

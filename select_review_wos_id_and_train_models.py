@@ -124,7 +124,7 @@ def main(args):
     for subdir in subdirs:
         seed = int(subdir.name[4:])
         logger.debug("\n\n\ntraining models for subdir {}".format(subdir))
-        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings, save_best=save_best)
+        run_train(paper_id, year, subdir, seed, args.transformer_scheme, args.embeddings, save_best=save_best, force_rerun=args.force_rerun)
 
 if __name__ == "__main__":
     total_start = timer()
@@ -141,6 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-header", action='store_true', help="specify that there is no header in the input `id_list` file. if this option is not specified, it assumed that there is a header.")
     parser.add_argument("--no-save-best", action='store_true', help="do not save the best model to pickle file")
     parser.add_argument("--embeddings", help="path to directory containing embeddings as pickled pandas Series")
+    parser.add_argument("--force-rerun", action='store_true', help="force rerun of training for models that have already completed")
     # parser.add_argument("--citations", help="citations data (to be read by spark)")
     # parser.add_argument("--papers", help="papers/cluster data (to be read by spark)")
     # parser.add_argument("--sample-size", type=int, default=200, help="number of articles to sample from the set to use to train the model (integer, default: 200)")
