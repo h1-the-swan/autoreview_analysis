@@ -31,6 +31,8 @@ pattern_paper_set_sizes = re.compile(r"after year.*?size of haystack: (\d+).*?(\
 pattern_seed_size = re.compile(r"number of seed papers: (\d+)\s")
 pattern_clf = re.compile(r"(\S+\(.*?\))\s.*?Fitting pipeline", flags=re.DOTALL)  # group 1 is the string representation of the classifier
 pattern_feature_names = re.compile(r"feature names: (.*)$", flags=re.MULTILINE)
+pattern_prec_recall_f1_at_n = re.compile(r"n==(\d+): prec==(.*?), recall==(.*?), f1==(.*?)$", flags=re.MULTILINE)
+pattern_average_precision = re.compile(r"average_precision==(.*?)$", flags=re.MULTILINE)
 
 from autoreview.util import load_data_from_pickles
 
@@ -119,6 +121,26 @@ def _parse_train_log_generator(train_log, log_fpath):
         #     'num_correctly_predicted': score_true,
         #     'score_correctly_predicted': score
         # }
+
+        prec_recall_f1_at_n = pattern_prec_recall_f1_at_n.findall(model_txt)
+        if prec_recall_f1_at_n:
+            scores_at_rank_n = {}
+            for n, prec, recall, f1 in prec_recall_f1_at_n:
+                n = int(n)
+                prec = float(prec)
+                recall = float(recall)
+                f1 = float(f1)
+                scores_at_rank_n[n] = {
+                    'prec': prec,
+                    'recall': recall,
+                    'f1': f1
+                }
+        else:
+            scores_at_rank_n = None
+
+        m = pattern_average_precision.search(model_txt)
+        average_precision = float(m.group(1)) if m else None
+
         this_model = AutoreviewAnalysisModel(
             log_fpath=log_fpath,
             model_idx=model_idx,
@@ -130,7 +152,9 @@ def _parse_train_log_generator(train_log, log_fpath):
             num_seed=num_seed,
             num_candidates=num_candidates,
             num_target=num_target,
-            num_target_in_candidates=num_target_in_candidates
+            num_target_in_candidates=num_target_in_candidates,
+            scores_at_rank_n=scores_at_rank_n,
+            average_precision=average_precision
         )
         yield this_model
 
@@ -146,7 +170,7 @@ def get_dirpath_from_log_fragment(log_fragment, basedir, pattern=pattern_dirname
     output_dirpath = Path(output_dirpath)
     return output_dirpath
 
-def process_one_log(fpath, split_phrase='training models for subdir', basedir=Path('.')):
+def process_one_log(fpath, split_phrase='training models for subdir', basedir=Path('.'), ignore_rerun=True):
     """process one train log
 
     :fpath: Path to train log file
@@ -159,9 +183,13 @@ def process_one_log(fpath, split_phrase='training models for subdir', basedir=Pa
         # no data in this log, or not properly formatted
         return (None, None)
     for log_fragment in log_split[1:]:
-        if 'skipping' in log_fragment.lower():
+        # ignore in certain cases:
+        _logupper = log_fragment.upper()
+        if 'SKIPPING' in _logupper:
             continue
-        if 'CANCELLED' in log_fragment:
+        if 'CANCELLED' in _logupper:
+            continue
+        if ignore_rerun is True and 'RERUNNING' in _logupper:
             continue
         log_fragment = split_phrase + log_fragment
         output_dirpath = get_dirpath_from_log_fragment(log_fragment, basedir)
@@ -172,7 +200,22 @@ class AutoreviewAnalysisModel:
 
     """Represents stats for a single trained model (e.g. LogisticRegression or RandomForestClassifier)"""
 
-    def __init__(self, log_fpath=None, dirpath=None, model_idx=None, clf=None, clf_type=None, feature_names=None, num_correctly_predicted=None, score_correctly_predicted=None, num_seed=None, num_target=None, num_candidates=None, num_target_in_candidates=None, paper_info=None):
+    def __init__(self, 
+                 log_fpath=None, 
+                 dirpath=None, 
+                 model_idx=None, 
+                 clf=None, 
+                 clf_type=None, 
+                 feature_names=None, 
+                 num_correctly_predicted=None, 
+                 score_correctly_predicted=None, 
+                 num_seed=None, 
+                 num_target=None, 
+                 num_candidates=None, 
+                 num_target_in_candidates=None, 
+                 paper_info=None,
+                 scores_at_rank_n=None,  # dictionary of n to dictionary -> {prec, recall, f1}
+                 average_precision=None):
         self.log_fpath = log_fpath
         self.dirpath = dirpath
         if self.dirpath is None and self.log_fpath is not None:
@@ -189,6 +232,8 @@ class AutoreviewAnalysisModel:
         self.num_candidates_before_year_lowpass = None
         self.num_candidates = num_candidates  # after year filter
         self.num_target_in_candidates = num_target_in_candidates  # number of target papers that appear in the candidate set
+        self.scores_at_rank_n = scores_at_rank_n
+        self.average_precision = average_precision
 
         self.paper_info = paper_info
         if not self.paper_info and self.dirpath is not None:
