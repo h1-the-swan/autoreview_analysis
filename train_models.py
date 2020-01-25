@@ -67,7 +67,7 @@ class TransformerSelection:
             'ef': 
                 ('ef', DataFrameColumnTransformer('EF')),
             'efDist': 
-                ('efDist', AbsoluteDistanceToSeedTransformer('year', seed_papers=self.seed_papers)),
+                ('efDist', AbsoluteDistanceToSeedTransformer('EF', seed_papers=self.seed_papers)),
             'year': 
                 ('year', DataFrameColumnTransformer('year')),
             'yearDist': 
