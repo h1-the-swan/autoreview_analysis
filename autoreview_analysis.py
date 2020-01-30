@@ -34,6 +34,8 @@ pattern_feature_names = re.compile(r"feature names: (.*)$", flags=re.MULTILINE)
 pattern_prec_recall_f1_at_n = re.compile(r"n==(\d+): prec==(.*?), recall==(.*?), f1==(.*?)$", flags=re.MULTILINE)
 pattern_average_precision = re.compile(r"average_precision==(.*?)$", flags=re.MULTILINE)
 
+pattern_timestamp = re.compile(r"(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)")
+
 from autoreview.util import load_data_from_pickles
 
 def get_logfname(basedir, n, logtype='collect'):
@@ -161,7 +163,7 @@ def _parse_train_log_generator(train_log, log_fpath):
 pattern_dirname = re.compile(r"output directory is (\S+)\s")
 
 def get_dirpath_from_log_fragment(log_fragment, basedir, pattern=pattern_dirname):
-    m = pattern_dirname.search(log_fragment)
+    m = pattern.search(log_fragment)
     if not m:
         return None
     output_dirpath = m.group(1)
@@ -170,15 +172,28 @@ def get_dirpath_from_log_fragment(log_fragment, basedir, pattern=pattern_dirname
     output_dirpath = Path(output_dirpath)
     return output_dirpath
 
-def process_one_log(fpath, split_phrase='training models for subdir', basedir=Path('.'), ignore_rerun=True):
+def get_log_start_time(log_txt, pattern=pattern_timestamp, fmt='%Y-%m-%d %H:%M:%S'):
+    """get the first timestamp from the log text
+
+    :returns: POSIX timestamp (float)
+
+    """
+    m = pattern.findall(log_txt)
+    if m:
+        ts = datetime.strptime(m[0], fmt)
+        return ts.timestamp()
+    return None
+
+def process_one_log(log, split_phrase='training models for subdir', basedir=Path('.'), ignore_rerun=True):
     """process one train log
 
-    :fpath: Path to train log file
+    :log: Path to train log file, or the text of a log
     :yields: log fragments for subdirs
 
     """
-    log_txt = fpath.read_text()
-    log_split = log_txt.split(split_phrase)
+    if isinstance(log, Path):
+        log = log.read_text()
+    log_split = log.split(split_phrase)
     if len(log_split) <= 1:
         # no data in this log, or not properly formatted
         return (None, None)
@@ -203,7 +218,9 @@ class AutoreviewAnalysisModel:
     def __init__(self, 
                  log_fpath=None, 
                  dirpath=None, 
-                 model_idx=None, 
+                 model_idx=None,
+                 origin_train_log_fpath=None,
+                 origin_train_log_start_time=None,
                  clf=None, 
                  clf_type=None, 
                  feature_names=None, 
@@ -221,6 +238,8 @@ class AutoreviewAnalysisModel:
         if self.dirpath is None and self.log_fpath is not None:
             self.dirpath = self.log_fpath.parent
         self.model_idx = model_idx  # index of model within the train log
+        self.origin_train_log_fpath = origin_train_log_fpath  # if the data comes from an aggregate train log, this will keep track of which log
+        self.origin_train_log_start_time = origin_train_log_start_time
         self.train_log = None
         self.clf = clf  # string representing the model and model parameters
         self.clf_type = clf_type
