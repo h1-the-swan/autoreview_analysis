@@ -36,6 +36,10 @@ pattern_average_precision = re.compile(r"average_precision==(.*?)$", flags=re.MU
 
 pattern_timestamp = re.compile(r"(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d)")
 
+pattern_transformer_num = re.compile(r"features(\d+?)\D")
+
+pattern_sample_set = re.compile(r"train_models\S*\.py (\S*sample\S*) (\S*) ")  # group 1 is the path to the sample IDs file; group 2 is the index within this file
+
 from autoreview.util import load_data_from_pickles
 
 def get_logfname(basedir, n, logtype='collect'):
@@ -117,12 +121,6 @@ def _parse_train_log_generator(train_log, log_fpath):
         m = pattern_predicted_true.search(model_txt)
         score_true = int(m.group(1)) if m else 0
         score = score_true / num_target
-        # this_model = {
-        #     'clf': clf,
-        #     'clf_type': clf_type,
-        #     'num_correctly_predicted': score_true,
-        #     'score_correctly_predicted': score
-        # }
 
         prec_recall_f1_at_n = pattern_prec_recall_f1_at_n.findall(model_txt)
         if prec_recall_f1_at_n:
@@ -211,6 +209,23 @@ def process_one_log(log, split_phrase='training models for subdir', basedir=Path
         if output_dirpath:
             yield (output_dirpath, log_fragment)
 
+def filter_out_bad_logs(transformer_num, log_timestamp, buggy_transformer_nums=[6,7,8,10,11], ignore_before=1579920800):
+    """Due to a bug, models trained with certain features before a certain datetime should be ignored.
+
+    :transformer_num: transformer number for the training run
+    :log_timestamp: timestamp of log given by get_log_start_time()
+    :buggy_transformer_nums: list of transformer numbers that could be problematic
+    :ignore_before: filter out logs with those features if the timestamp is earlier than this
+    :returns: True if the log passes the filter, False if it is buggy and should be ignored
+
+    """
+    if transformer_num in buggy_transformer_nums:
+        if log_timestamp > ignore_before:
+            return True
+        else:
+            return False
+    return True
+
 class AutoreviewAnalysisModel:
 
     """Represents stats for a single trained model (e.g. LogisticRegression or RandomForestClassifier)"""
@@ -232,7 +247,9 @@ class AutoreviewAnalysisModel:
                  num_target_in_candidates=None, 
                  paper_info=None,
                  scores_at_rank_n=None,  # dictionary of n to dictionary -> {prec, recall, f1}
-                 average_precision=None):
+                 average_precision=None,
+                 sample_set=None,
+                 sample_set_idx=None):
         self.log_fpath = log_fpath
         self.dirpath = dirpath
         if self.dirpath is None and self.log_fpath is not None:
@@ -253,6 +270,8 @@ class AutoreviewAnalysisModel:
         self.num_target_in_candidates = num_target_in_candidates  # number of target papers that appear in the candidate set
         self.scores_at_rank_n = scores_at_rank_n
         self.average_precision = average_precision
+        self.sample_set = sample_set
+        self.sample_set_idx = sample_set_idx
 
         self.paper_info = paper_info
         if not self.paper_info and self.dirpath is not None:
@@ -278,6 +297,130 @@ class AutoreviewAnalysisModel:
             if len(path.parts) == 1:
                 # if we've gone all the way up to the root directory, stop. We have failed.
                 return None
+
+class AutoreviewAnalysisDataset:
+
+    """Get data for all experiments from train logs."""
+
+    def __init__(self, basedir='data/hpc', glob_pattern="*train_models*features*.out", split_phrase="training models for subdir", ignore_transformer_nums=[1,2]):
+        self.basedir = Path(basedir)
+        self.glob_pattern = glob_pattern
+        self.split_phrase = split_phrase
+        self.ignore_transformer_nums = ignore_transformer_nums
+
+        # keep track of errors and ignored logs
+        self.ignored_fpaths = []
+        self.attr_error_fpaths = []
+        self.no_timestamp = []
+
+        self.models = []  # initialize
+
+        self.collect_data()
+
+        self.df = self.get_dataframe(self.models)
+
+        self.top_models = self.get_top_models(self.df)
+
+    def collect_data(self):
+        """collect the data set
+
+        """
+        train_fpaths = self.basedir.rglob(self.glob_pattern)
+        for fp in train_fpaths:
+            m = pattern_transformer_num.search(str(fp))
+            if not m:
+                raise RuntimeError("unexpected error: transformer number not found in the filename for {}".format(fp))
+            transformer_num = int(m.group(1))
+            log_txt = fp.read_text()
+            log_timestamp = get_log_start_time(log_txt)
+            if not log_timestamp:
+                self.no_timestamp.append(fp)
+                continue
+
+            m = pattern_sample_set.search(log_txt)
+            if m:
+                sample_set_fpath = Path(m.group(1))
+                sample_set_idx = int(m.group(2))
+            else:
+                sample_set_fpath = None
+                sample_set_idx = None
+
+            if filter_out_bad_logs(transformer_num, log_timestamp) and transformer_num not in self.ignore_transformer_nums:
+                for output_dirpath, log_fragment in process_one_log(log_txt, self.split_phrase, self.basedir, ignore_rerun=False):
+                    if output_dirpath:
+                        try:
+                            for model in parse_train_log(log_fragment, yield_models=True):
+                                model.dirpath = output_dirpath
+                                model.paper_info = model.get_paper_info(model.dirpath)
+                                model.origin_train_log_fpath = fp
+                                model.origin_train_log_start_time = log_timestamp
+                                model.transformer_num = transformer_num
+                                model.sample_set = sample_set_fpath
+                                model.sample_set_idx = sample_set_idx
+                                self.models.append(model)
+                        except AttributeError:
+                            self.attr_error_fpaths.append(fp)
+            else:
+                self.ignored_fpaths.append(fp)
+
+    def get_dataframe(self, models):
+        """Get the data as a pandas dataframe and dedup
+
+        :models: list of AutoreviewAnalysisModel objects
+        :returns: pandas dataframe
+
+        """
+        data = []
+        for i, model in enumerate(models):
+            paper_info = model.paper_info
+            if not paper_info:
+                paper_info = {}
+            data.append({
+                'clf_type': model.clf_type,
+                'feature_names': model.feature_names,
+                'score_correctly_predicted': model.score_correctly_predicted,
+                'num_seed': model.num_seed,
+                'num_candidates': model.num_candidates,
+                'num_target': model.num_target,
+                'num_target_in_candidates': model.num_target_in_candidates,
+                'log_fpath': model.log_fpath,
+                'dirpath': model.dirpath,
+                'UID': paper_info.get('UID'),
+                'pub_year': paper_info.get('pub_year'),
+                'models_idx': i,
+                'scores_at_rank_n': model.scores_at_rank_n,
+                'average_precision': model.average_precision,
+                'origin_train_log_fpath': model.origin_train_log_fpath,
+                'origin_train_log_start_time': model.origin_train_log_start_time,
+                'transformer_num': model.transformer_num,
+                'sample_set': model.sample_set,
+                'sample_set_idx': model.sample_set_idx,
+            })
+        df_models = pd.DataFrame(data)
+
+        df_models['num_seed'] = df_models.num_seed.astype(int)
+        df_models['num_refs'] = df_models.num_seed + df_models.num_target
+        df_models['ratio_target_in_candidates'] = df_models.num_target_in_candidates / df_models.num_target
+
+        # drop duplicates, keeping the most recent
+        dedup_cols = ['clf_type', 'score_correctly_predicted', 'dirpath']
+        df_models_dedup = df_models.sort_values('origin_train_log_start_time', ascending=False).drop_duplicates(dedup_cols, keep='first')
+
+        return df_models_dedup
+
+    def get_top_models(self, df):
+        """Get the top models, one for each review article/seed size/feature set
+
+        :df: dataframe for individual models
+        :returns: pandas dataframe with just the top models
+
+        """
+        top_models = df.sort_values('score_correctly_predicted', ascending=False)
+        top_models = top_models.drop_duplicates(subset=['dirpath'], keep='first')
+        return top_models
+
+
+        
 
         
 
