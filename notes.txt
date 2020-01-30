@@ -23,3 +23,12 @@ python create_midsize_sample.py ./data/wos_papers_reviews_with_citation_count.ts
 ```
 python create_midsize_sample.py ./data/wos_papers_reviews_with_references_within_network_20191231.tsv ./data/reviews_wos_ids_midsize_sample_20191231.tsv --debug >& logs/create_midsize_sample_20191231.log &
 ```
+
+2020-01-29
+on slurm, to pause all queued jobs so that you can run more important jobs:
+```
+squeue -u <USER_NAME> --noheader -o "scontrol hold %i" > hold_script && squeue -u <USER_NAME> --noheader -o "scontrol release %i" > release_script
+source hold_script
+# now submit more important jobs
+source release_script
+```
