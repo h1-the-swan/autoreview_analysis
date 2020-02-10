@@ -18,3 +18,8 @@ _batch_scripts/
 *.sif
 
 spark_local_dir/
+
+cancel_script
+hold_script
+release_script
+listdir_COMPLETE.txt
