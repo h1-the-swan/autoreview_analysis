@@ -30,5 +30,9 @@ on slurm, to pause all queued jobs so that you can run more important jobs:
 squeue -u <USER_NAME> --noheader -o "scontrol hold %i" > hold_script && squeue -u <USER_NAME> --noheader -o "scontrol release %i" > release_script
 source hold_script
 # now submit more important jobs
+
+# now we can release the held jobs
 source release_script
 ```
+
+Note that this will not suspend currently running jobs, but it will set their priority to zero, so if they are preempted and restarted, they will be held.
